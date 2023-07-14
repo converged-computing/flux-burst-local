@@ -122,7 +122,7 @@ class BurstParameters:
             return
 
         if (
-            self.curve_cert
+            self.curve_cert is not None
             and os.path.exists(self.curve_cert)
             and not os.path.exists(curve_path)
         ):
