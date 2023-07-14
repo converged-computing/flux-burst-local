@@ -122,4 +122,60 @@ TODO START OTHER WOKRERS
 ...
 ```
 
-I wasn't able to get an allocation so I'll develop this tomorrow.
+### On Quartz
+
+I was able to install flux bindings to my local python environment (associated with python 3.6 on the system):
+
+```bash
+pip3 install flux-python==0.48.0rc6 --user
+export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
+```
+Note there was a bug with dataclasses and I uninstalled it:
+
+```bash
+pip3 uninstall dataclasses -y
+```
+
+And then the import of Flux worked. Then I make a working directory:
+
+```bash
+mkdir test-flux-burst
+cd test-flux-burst
+```
+
+And installed flux-burst and flux-burst local.
+
+```bash
+# I needed to do this for package data
+pip install flux-burst
+git clone -b add/pre-section https://github.com/converged-computing/flux-burst
+cd flux-burst
+pip3 install . --user
+cd ../
+git clone https://github.com/converged-computing/flux-burst-local
+cd flux-burst-local
+pip3 install . --user
+cd ../
+```
+
+And added the location where `flux-burst-local` ("binary") is installed to the path:
+
+```bash
+export PATH=/g/g0/sochat1/.local/bin:$PATH
+```
+
+Next let's try starting the main broker, and generating a command for the workers.
+Since I'm developing this, I'll need to run this command multiple times as I test
+interacting with workers.
+
+```bash
+$ cd flux-burst-local/example
+$ python3 burst-slurm-allocation.py --config-dir ./configs --network-device "*" --hostnames ${SLURM_NODE_LIST}
+```
+```
+🌳️ Flux root set to /usr
+🌀️ Done! Use the following command to start your Flux instance and burst!
+    It is also written to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/start.sh
+
+/usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -Slog-stderr-level=7 -Slog-stderr-mode=local /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs --flux-root /usr
+```
