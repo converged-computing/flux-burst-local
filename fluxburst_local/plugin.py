@@ -180,7 +180,6 @@ class SlurmBurstParameters(BurstParameters):
 
 
 class FluxBurstLocal(BurstPlugin):
-
     _param_dataclass = BurstParameters
 
     def run(self, request_burst=False, nodes=None, **kwargs):
@@ -278,7 +277,7 @@ class FluxBurstSlurm(FluxBurstLocal):
             "-Slog-stderr-mode=local",
             flux_burst_local,
             "--config-dir",
-            dataclass.config_dir,
+            dataclass.system_dir,
             "--flux-root",
             dataclass.flux_root,
         ]
