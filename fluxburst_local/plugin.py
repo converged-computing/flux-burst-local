@@ -173,7 +173,6 @@ class SlurmBurstParameters(BurstParameters):
             or os.environ.get("SLURM_JOB_HOSTLIST")
             or os.environ.get("SLURM_NODELIST")
         )
-        self.hostnames = "quartz[1-2]"
         if not self.hostnames:
             raise ValueError(
                 "The 'hostnames' parameter or environment variable SLURM_JOB_HOSTLIST must be defined."
