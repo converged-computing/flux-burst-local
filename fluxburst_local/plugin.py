@@ -267,7 +267,7 @@ class FluxBurstSlurm(FluxBurstLocal):
             "start",
             "--broker-opts",
             "--config",
-            dataclass.config_dir,
+            dataclass.system_dir,
             "-Stbon.fanout=256",
             f"-Srundir={dataclass.run_dir}",
             f"-Sstatedir={dataclass.lib_dir}",
