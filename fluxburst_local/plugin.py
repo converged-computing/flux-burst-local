@@ -25,9 +25,9 @@ class BurstParameters:
     environment (or both).
     """
 
-    hostnames: str
-    port: int = 8050
-    network_device: str = "eth0"
+    hostnames: Optional[str] = None
+    port: Optional[int] = 8050
+    network_device: Optional[str] = "eth0"
 
     # Custom broker config / curve certs for bursted cluster
     curve_cert: Optional[str] = None
@@ -36,6 +36,7 @@ class BurstParameters:
 
     # Flux log level
     log_level: Optional[int] = 7
+    regenerate: bool = False
 
     # Custom flux user (defaults to running user)
     flux_user: Optional[str] = None
@@ -60,11 +61,14 @@ class BurstParameters:
         Generate a bursted broked config.
         """
         template = templates.system_toml
+        system_toml = os.path.join(self.system_dir, "system.toml")
+        if os.path.exists(system_toml) and not self.regenerate:
+            return
 
         # We call this a poor man's jinja2!
         replace = {
             "NODELIST": self.hostnames,
-            "PORT": self.port,
+            "PORT": str(self.port),
             "CURVECERT": self.curve_cert,
             "NETWORK_DEVICE": self.network_device,
             "CONFIG_DIR": self.config_dir,
@@ -74,8 +78,7 @@ class BurstParameters:
             template = template.replace(key, value)
 
         # Write the system toml
-        system_toml = os.path.join(self.config_dir, "system.toml")
-        print(f"Writing flux config to {system_toml}")
+        print(f"🦩️ Writing flux config to {system_toml}")
         utils.write_file(template, system_toml)
         dataclass.system_toml = template
 
@@ -97,9 +100,15 @@ class BurstParameters:
     def set_config_dir(self):
         """
         Setup the local config directory
+
+        We also create paths for run, lib, and system.
         """
         self.config_dir = os.path.abspath(self.config_dir or utils.get_tmpdir())
-        utils.mkdir_p(self.config_dir)
+        self.system_dir = os.path.join(self.config_dir, "system")
+        self.run_dir = os.path.join(self.config_dir, "run")
+        self.lib_dir = os.path.join(self.config_dir, "run")
+        for path in [self.lib_dir, self.run_dir, self.system_dir]:
+            utils.mkdir_p(path)
 
     def write_curve_cert(self):
         """
@@ -107,6 +116,11 @@ class BurstParameters:
         """
         # If we are given a filepath, copy it over
         curve_path = os.path.join(self.config_dir, "curve.cert")
+
+        # Cut out early if we are good!
+        if os.path.exists(curve_path):
+            return
+
         if (
             self.curve_cert
             and os.path.exists(self.curve_cert)
@@ -129,6 +143,8 @@ class BurstParameters:
         Use flux R encode to write resource spec for hosts.
         """
         rpath = os.path.join(self.config_dir, "R")
+        if os.path.exists(rpath) and not self.regenerate:
+            return
 
         # Otherwise not defined, we can't proceed!
         res = utils.run_command(
@@ -148,8 +164,6 @@ class SlurmBurstParameters(BurstParameters):
     is used to trigger getting the needed parameters from the environment.
     """
 
-    hostnames: Optional[str] = None
-
     def set_hostnames(self):
         """
         Ensure we have hostnames from a variable or environment.
@@ -162,33 +176,14 @@ class SlurmBurstParameters(BurstParameters):
             )
 
 
-class FluxBurstSlurm(BurstPlugin):
-    # Set our custom dataclass, otherwise empty
-    _param_dataclass = SlurmBurstParameters
+class FluxBurstLocal(BurstPlugin):
 
-    @classmethod
-    def setup(cls, dataclass):
-        """
-        Finish populating the dataclass with SLURM environment variables.
-        """
-        dataclass.validate()
-        dataclass.set_hostnames()
-        dataclass.set_config_dir()
-        dataclass.write_curve_cert()
-        dataclass.write_resource_spec()
-        dataclass.generate_flux_config()
-        # TODO we need to start our main broker here and connect to it
+    _param_dataclass = BurstParameters
 
-    def run(self, request_burst=False, nodes=None, tasks=None):
+    def run(self, request_burst=False, nodes=None, **kwargs):
         """
         Given some set of scheduled jobs, run bursting.
         """
-        print("TODO WRITE ME VANESSA")
-        print("BURST")
-        import IPython
-
-        IPython.embed()
-
         # Exit early if no jobs to burst
         if not self.jobs and not request_burst:
             logger.info(f"Plugin {self.name} has no jobs to burst.")
@@ -244,3 +239,52 @@ class FluxBurstSlurm(BurstPlugin):
         # Add to self.jobs and return True!
         self.jobs[job["id"]] = job
         return True
+
+
+class FluxBurstSlurm(FluxBurstLocal):
+    # Set our custom dataclass, otherwise empty
+    _param_dataclass = BurstParameters
+
+    @classmethod
+    def setup(cls, dataclass):
+        """
+        Finish populating the dataclass with SLURM environment variables.
+        """
+        dataclass.validate()
+        dataclass.set_hostnames()
+        dataclass.set_config_dir()
+        dataclass.write_curve_cert()
+        dataclass.write_resource_spec()
+        dataclass.generate_flux_config()
+
+        # Generate the rundirectory
+        # Start the main broker via replacing current process
+        flux_burst_local = shutil.which("flux-burst-local")
+        if not flux_burst_local:
+            raise ValueError("Cannot find flux-burst-local executable on path.")
+        args = [
+            "start",
+            "--broker-opts",
+            "--config",
+            dataclass.config_dir,
+            "-Stbon.fanout=256",
+            f"-Srundir={dataclass.run_dir}",
+            f"-Sstatedir={dataclass.lib_dir}",
+            f"-Slocal-uri=local://{dataclass.run_dir}/local",
+            f"-Slog-stderr-level={dataclass.log_level}",
+            "-Slog-stderr-mode=local",
+            flux_burst_local,
+            "--config-dir",
+            dataclass.config_dir,
+            "--flux-root",
+            dataclass.flux_root,
+        ]
+        print(
+            "🌀️ Done! Use the following command to start your Flux instance and burst!"
+        )
+        command_file = os.path.join(dataclass.config_dir, "start.sh")
+        print(f"    It is also written to {command_file}\n")
+        command = f"{dataclass.fluxcmd} {' '.join(args)}"
+        command_exec = f"#!/bin/bash\n{command}"
+        utils.write_file(command_exec, command_file)
+        print(f"{dataclass.fluxcmd} {' '.join(args)}")

@@ -7,7 +7,6 @@ in the context of simply starting a set of nodes that are alongside one another
 in an allocation.
 
 For instructions, see the [main flux-burst repository](https://github.com/converged-computing/flux-burst).
-Tutorials are available under the [flux operator](https://github.com/flux-framework/flux-operator/tree/main/examples/experimental/bursting)
 
 ![https://raw.githubusercontent.com/converged-computing/flux-burst/main/docs/assets/img/logo.png](https://raw.githubusercontent.com/converged-computing/flux-burst/main/docs/assets/img/logo.png)
 

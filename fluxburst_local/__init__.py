@@ -17,9 +17,10 @@ def init(dataclass, **kwargs):
     this means starting another flux instance with the resources.
     If SLURM we assume we are inside a SLURM allocation.
     """
-    from .plugin import FluxBurstSlurm, SlurmBurstParameters
+    from .plugin import FluxBurstLocal, FluxBurstSlurm, SlurmBurstParameters
 
     if isinstance(dataclass, SlurmBurstParameters):
         # Set variables from slurm
         FluxBurstSlurm.setup(dataclass)
         return FluxBurstSlurm(dataclass, **kwargs)
+    return FluxBurstLocal(dataclass, **kwargs)

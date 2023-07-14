@@ -97,4 +97,7 @@ if __name__ == "__main__":
             "Operating System :: Unix",
             "Programming Language :: Python :: 3.8",
         ],
+        entry_points={
+            "console_scripts": ["flux-burst-local=fluxburst_local.flux:main"]
+        },
     )
