@@ -135,7 +135,6 @@ class BurstParameters:
             raise ValueError(
                 f'Issue generating curve-cert: {res["message"]}. Try pre-generating it with flux keygen {curve_path}.'
             )
-        utils.write_file(res["message"], curve_path)
         self.curve_cert = curve_path
 
     def write_resource_spec(self):
