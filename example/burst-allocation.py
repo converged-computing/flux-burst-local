@@ -68,6 +68,7 @@ def main():
     # Continue running the burst until no more burstable
     # This likely needs to be adjusted
     while True:
+        print("Running burst...")
         client.run_burst()
         time.sleep(30)
 

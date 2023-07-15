@@ -329,6 +329,7 @@ class FluxBurstSlurm(FluxBurstLocal):
             f"-Slog-stderr-level={dataclass.log_level}",
             "-Slog-stderr-mode=local",
             "-Sbroker.quorum=0",
+            "-Spty.interactive",
             flux_burst_local,
             "--config-dir",
             dataclass.system_dir,

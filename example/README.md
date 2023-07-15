@@ -16,6 +16,44 @@ to do the burst, while the others assume starting already instead the running
 lead broker. We are choosing this design because likely a local burst will need
 to do (and automate) both steps. The general usage is the following:
 
+### 0. Install Flux Burst
+
+Next we need to install stuff! I did this _outside_ the allocation in case it matters. Likely you will have variance in your Python environment.
+I wound up:
+
+1. Using the system Flux + Python
+2. Using my local environment pip to install to the python user site
+3. Installing flux bindings that matched my version of flux.
+
+I was able to install flux bindings to my local python environment (associated with python 3.6 on the system):
+
+```bash
+pip3 install flux-python==0.48.0rc6 --user
+export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
+```
+
+Note there was a bug with dataclasses and I uninstalled it:
+
+```bash
+pip3 uninstall dataclasses -y
+```
+
+And then the import of Flux worked. Then I make a working directory:
+
+```bash
+mkdir test-flux-burst
+cd test-flux-burst
+```
+
+And installed flux-burst and flux-burst local (you can also clone repositories)
+
+```bash
+pip install flux-burst
+pip install flux-burst-local
+```
+
+You might need to add `--user` if you get a permissions error. Mine installed to my user site by default.
+
 ### 1. Create an allocation.
 
 First, create a Flux instance to work from. This is how you do that from SLURM. This would be for four nodes.
@@ -35,31 +73,25 @@ $ flux resource list
 ```
 
 Then generate the configs for the hosts we got. Note that since this is no longer slurm, we won't get them from the environment variable.
-I was lazy and grabbed them from resources above (there likely is a better way!)
+I was lazy and grabbed them from `flux resource list` (there likely is a better way!)
 
 ```bash
 export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
 export PATH=/g/g0/sochat1/.local/bin:$PATH
 cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
-python3 burst-slurm-allocation.py --config-dir ./configs --network-device "*" --hostnames quartz[8-11] --flux-uri $FLUX_URI
+python3 burst-allocation.py --config-dir ./configs --network-device "*" --hostnames quartz[5-8] --flux-uri $FLUX_URI
 ```
 ```console
+$ python3 burst-allocation.py --config-dir ./configs --network-device "*" --hostnames quartz[5-8] --flux-uri $FLUX_URI
 🌳️ Flux root set to /usr
-🦩️ Writing flux config to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system/system.toml
 🌀️ Done! Use the following command to start your Flux instance and burst!
     It is also written to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/start.sh
 
-/usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -Slog-stderr-level=7 -Slog-stderr-mode=local /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system --flux-root /usr
+/usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -S pty.interactive -Slog-stderr-level=7 -Slog-stderr-mode=local -Sbroker.quorum=0 /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system --flux-root /usr --flux-uri local:///var/tmp/sochat1/flux-TvAVr6/local-0
 ```
 
-Grab the FLUX_URI for this parent instance:
-
-```
-$ echo $FLUX_URI
-local:///var/tmp/sochat1/flux-proxy-L0im8J/local
-```
-
-I then started the main broker (using the command above).  Then I shelled into the cluster again, and to the same node and connected to the socket to verify three hosts were down.
+That command has actually started the instance with one broker up, and loaded the burst plugin, and it's running a sleep loop (every 30 seconds) waiting for a burstable job.
+So let's shell into that same instance and give it one! This is in another terminal.
 
 ```bash
 export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
