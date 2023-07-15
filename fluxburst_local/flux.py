@@ -63,7 +63,7 @@ def main():
     while True:
         print("Running burst...")
         client.run_burst()
-        time.sleep(30)
+        time.sleep(5)
 
 
 if __name__ == "__main__":
