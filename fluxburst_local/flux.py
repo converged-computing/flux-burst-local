@@ -5,6 +5,7 @@
 # main broker and can now burst.
 
 import argparse
+import time
 
 from fluxburst.client import FluxBurst
 
@@ -57,17 +58,12 @@ def main():
     # Here is how we can see the jobs that are contenders to burst!
     # client.select_jobs()
 
-    # Now let's run the burst! The active plugins will determine if they
-    # are able to schedule a job, and if so, will do the work needed to
-    # burst. unmatched jobs (those we weren't able to schedule) are
-    # returned, maybe to do something with? Note that the default mock
-    # generates a N=4 job. For compute engine that will be 3 compute
-    # nodes and 1 login node.
-    unmatched = client.run_burst()
-    assert not unmatched
-
-    # plugin = client.plugins["local"]
-    # print(plugin)
+    # Continue running the burst until no more burstable
+    # This likely needs to be adjusted
+    while True:
+        print("Running burst...")
+        client.run_burst()
+        time.sleep(30)
 
 
 if __name__ == "__main__":

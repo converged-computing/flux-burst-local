@@ -2,7 +2,6 @@
 
 import argparse
 import os
-import time
 
 # Burst slurm allocation
 # This is an example of bursting on a slurm allocation from one set of nodes (online)
@@ -64,13 +63,6 @@ def main():
     # (and then issuing the burst). This could change (e.g., if we have already)
     # generated configs or started the cluster.
     client.load("local", params)
-
-    # Continue running the burst until no more burstable
-    # This likely needs to be adjusted
-    while True:
-        print("Running burst...")
-        client.run_burst()
-        time.sleep(30)
 
 
 if __name__ == "__main__":
