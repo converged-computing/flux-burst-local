@@ -27,6 +27,7 @@ def get_parser():
     parser.add_argument(
         "--curve-cert", help="Curve certificate for flux (flux keygen curve.cert)"
     )
+    parser.add_argument("--flux-uri", help="Flux URI of currently running instance.")
     parser.add_argument(
         "--flux-root", help="Flux root (should correspond with broker running Flux)"
     )
@@ -49,13 +50,13 @@ def main():
         config_dir=args.config_dir,
         curve_cert=args.curve_cert,
         network_device=args.network_device,
+        flux_uri=args.flux_uri,
     )
     client = FluxBurst()
 
     # For debugging, here is a way to see plugins available
     # import fluxburst.plugins as plugins
     # print(plugins.burstable_plugins)
-    # {'gke': <module 'fluxburst_gke' from '/home/flux/.local/lib/python3.8/site-packages/fluxburst_gke/__init__.py'>}
 
     # Load our plugin and provide the dataclass to it!
     # Unlike other plugins, the local one handles setting up the flux instance

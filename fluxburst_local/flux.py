@@ -5,6 +5,7 @@
 # main broker and can now burst.
 
 import argparse
+import time
 
 from fluxburst.client import FluxBurst
 
@@ -21,6 +22,9 @@ def get_parser():
     parser.add_argument(
         "--flux-root", help="Flux root (should correspond with broker running Flux)"
     )
+    parser.add_argument(
+        "--flux-uri", help="URI for the parent instance (to bring nodes up)"
+    )
     return parser
 
 
@@ -35,20 +39,15 @@ def main():
         config_dir=args.config_dir,
         # This says to not re-generate our configs!
         regenerate=False,
+        flux_uri=args.flux_uri,
     )
     assert params
     client = FluxBurst()
 
-    # For debugging, here is a way to see plugins available
-    # import fluxburst.plugins as plugins
-    # print(plugins.burstable_plugins)
-    print("TODO START OTHER WOKRERS")
-
     # Load our plugin and provide the dataclass to it!
-    # client.load("local", params)
+    client.load("local", params)
 
     # Sanity check loaded
-    client = FluxBurst()
     print(f"flux-burst client is loaded with plugins for: {client.choices}")
 
     # We are using the default algorithms to filter the job queue and select jobs.
@@ -59,16 +58,12 @@ def main():
     # Here is how we can see the jobs that are contenders to burst!
     # client.select_jobs()
 
-    # Now let's run the burst! The active plugins will determine if they
-    # are able to schedule a job, and if so, will do the work needed to
-    # burst. unmatched jobs (those we weren't able to schedule) are
-    # returned, maybe to do something with? Note that the default mock
-    # generates a N=4 job. For compute engine that will be 3 compute
-    # nodes and 1 login node.
-    unmatched = client.run_burst()
-    assert not unmatched
-    plugin = client.plugins["local"]
-    print(plugin)
+    # Continue running the burst until no more burstable
+    # This likely needs to be adjusted
+    while True:
+        print("Running burst...")
+        client.run_burst()
+        time.sleep(5)
 
 
 if __name__ == "__main__":
