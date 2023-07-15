@@ -33,6 +33,7 @@ class BurstParameters:
     curve_cert: Optional[str] = None
     flux_root: Optional[str] = None
     config_dir: Optional[str] = None
+    flux_uri: Optional[str] = None
 
     # Flux log level
     log_level: Optional[int] = 7
@@ -185,6 +186,13 @@ class FluxBurstLocal(BurstPlugin):
         """
         Given some set of scheduled jobs, run bursting.
         """
+        try:
+            import flux
+            import flux.resource
+        except ImportError:
+            logger.info("Cannot connect to flux broker, cannot burst.")
+            return
+
         # Exit early if no jobs to burst
         if not self.jobs and not request_burst:
             logger.info(f"Plugin {self.name} has no jobs to burst.")
@@ -204,6 +212,44 @@ class FluxBurstLocal(BurstPlugin):
             node_count = max([v["nnodes"] for _, v in self.jobs.items()])
         assert node_count
 
+        handle = flux.Flux()
+        rpc = flux.resource.list.resource_list(handle)
+        listing = rpc.get()
+
+        nodes_down = [node for node in listing.down.nodelist]
+        nodes_free = [node for node in listing.free.nodelist]
+        if nodes_free + nodes_down < node_count:
+            logger.warning("Not enough nodes to satisfy job, even with bursting")
+            return
+
+        # Calculate nodes needed and burst. Ensure if we don't need any, we exit
+        nodes_needed = node_count - nodes_free
+        if nodes_needed <= 0:
+            return
+
+        logger.debug(f"{nodes_needed} are needed.")
+
+        # Note that this assumes flux in the same install location, and the rank 0 of the second instance == rank 0 of the first
+        # Aside from that, we let flux choose the nodes
+        command = [
+            self.params.fluxcmd,
+            "proxy",
+            self.params.flux_uri,
+            self.params.fluxcmd,
+            "-N",
+            nodes_needed,
+            "--requires" '"not rank:0"',
+            self.params.fluxcmd,
+            "start",
+            "--broker-opts",
+            "--config",
+            self.params.system_dir,
+        ]
+        print(command)
+        res = utils.run_command(command)
+        if res["return_code"] != 0:
+            logger.error(f"Issue connecting to flux proxy: {res['message']}.")
+
     def validate_params(self):
         """
         Validate parameters provided as BurstParameters.
@@ -215,6 +261,8 @@ class FluxBurstLocal(BurstPlugin):
         if not os.path.exists(self.params.flux_root):
             logger.error(f"Flux root {self.params.flux_root} does not exist.")
             return False
+        if not self.params.flux_uri:
+            logger.error("A Flux URI (flux_uri parameter) is required to burst.")
         return True
 
     def schedule(self, job):
@@ -258,6 +306,12 @@ class FluxBurstSlurm(FluxBurstLocal):
         dataclass.write_resource_spec()
         dataclass.generate_flux_config()
 
+        # Flux URI is required
+        if not dataclass.flux_uri:
+            raise ValueError(
+                "The flux_uri must be defined to provide to the child instance."
+            )
+
         # Generate the rundirectory
         # Start the main broker via replacing current process
         flux_burst_local = shutil.which("flux-burst-local")
@@ -274,15 +328,20 @@ class FluxBurstSlurm(FluxBurstLocal):
             f"-Slocal-uri=local://{dataclass.run_dir}/local",
             f"-Slog-stderr-level={dataclass.log_level}",
             "-Slog-stderr-mode=local",
+            "-Sbroker.quorum=0",
             flux_burst_local,
             "--config-dir",
             dataclass.system_dir,
             "--flux-root",
             dataclass.flux_root,
+            "--flux-uri",
+            dataclass.flux_uri,
         ]
         print(
             "🌀️ Done! Use the following command to start your Flux instance and burst!"
         )
+
+        # Write the command file
         command_file = os.path.join(dataclass.config_dir, "start.sh")
         print(f"    It is also written to {command_file}\n")
         command = f"{dataclass.fluxcmd} {' '.join(args)}"

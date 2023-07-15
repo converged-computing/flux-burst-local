@@ -21,6 +21,9 @@ def get_parser():
     parser.add_argument(
         "--flux-root", help="Flux root (should correspond with broker running Flux)"
     )
+    parser.add_argument(
+        "--flux-uri", help="URI for the parent instance (to bring nodes up)"
+    )
     return parser
 
 
@@ -35,20 +38,15 @@ def main():
         config_dir=args.config_dir,
         # This says to not re-generate our configs!
         regenerate=False,
+        flux_uri=args.flux_uri,
     )
     assert params
     client = FluxBurst()
 
-    # For debugging, here is a way to see plugins available
-    # import fluxburst.plugins as plugins
-    # print(plugins.burstable_plugins)
-    print("TODO START OTHER WOKRERS")
-
     # Load our plugin and provide the dataclass to it!
-    # client.load("local", params)
+    client.load("local", params)
 
     # Sanity check loaded
-    client = FluxBurst()
     print(f"flux-burst client is loaded with plugins for: {client.choices}")
 
     # We are using the default algorithms to filter the job queue and select jobs.
@@ -67,8 +65,9 @@ def main():
     # nodes and 1 login node.
     unmatched = client.run_burst()
     assert not unmatched
-    plugin = client.plugins["local"]
-    print(plugin)
+
+    # plugin = client.plugins["local"]
+    # print(plugin)
 
 
 if __name__ == "__main__":
