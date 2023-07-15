@@ -245,6 +245,7 @@ class FluxBurstLocal(BurstPlugin):
             "--config",
             self.params.system_dir,
         ]
+        # This likely can be improved
         print(" ".join(command))
         os.system(" ".join(command))
 

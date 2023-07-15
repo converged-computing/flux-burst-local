@@ -164,7 +164,9 @@ Running burst...
 
 </details>
 
-The above is going to sleep every 30 seconds and try to run a burst. Bursting happens based on jobs needing it, so let's do that next!
+The above is going to sleep every 5 seconds and try to run a burst. Bursting happens based on jobs needing it, and specifically
+it will look at nodes free + nodes down, and compare to nodes needed, and bring up those that are possible and needed (so a burst
+will just happen once / until all node are up). Let's do that next!
 In another terminal, connect to your same lead broker node and then the local socket (e.g quartz5)
 
 ```bash
@@ -190,265 +192,71 @@ Now we want to test running a flux job and targeting the three down workers. Sub
 flux run -N 4 -o cpu-affinity=off --cwd /tmp --setattr=burstable hostname
 ```
 
-If you are watching the main broker still running, you should see the nodes join. But the problem now is that this command was run from the top level instance,
-and not from inside of the burst. There might be a more clever way to run all of this, but the problem (as I see it) is that we are one level too low to control the bursting.
-Hmm, can we do a flux proxy to the parent socket?
-
-```bash
-flux proxy flux submit -N 3 --requires "not rank:0" /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system
-```
-
-
-## Development
-
-This is earlier work for development (likely not perfectly relevant anymore, kept for documentation)
-
-```bash
-# Ensure the installed executable is on your path
-export PATH=$HOME/.local/bin:$PATH
-
-# If you are using a custom flux install
-$ python burst-allocation.py --config-dir ./configs --flux-root /path/to/flux/root --network-device eno1
-
-# If you want to discover flux on your path
-$ python burst-allocation.py --config-dir ./configs --network-device eno1
-
-# Development with one node (e.g., DevContainer)
-$ python3 burst-allocation.py --config-dir ./configs --network-device eno1 --hostnames $(hostname)
-```
-```
-🌳️ Flux root set to /usr
-🦩️ Writing flux config to /workspaces/flux-burst-local/example/configs/system/system.toml
-🌀️ Done! Use the following command to start your Flux instance and burst!
-    It is also written to /workspaces/flux-burst-local/example/configs/start.sh
-
-/usr/bin/flux start --broker-opts --config /workspaces/flux-burst-local/example/configs -Stbon.fanout=256 -Srundir=/workspaces/flux-burst-local/example/configs/run -Sstatedir=/workspaces/flux-burst-local/example/configs/run -Slocal-uri=local:///workspaces/flux-burst-local/example/configs/run/local -Slog-stderr-level=7 -Slog-stderr-mode=local /home/vscode/.local/bin/flux-burst-local --config-dir /workspaces/flux-burst-local/example/configs --flux-root /usr
-```
-
-In the above, I was running on SLURM so the hostnames were detected automatically. If you are in
-a Flux instance you should use `flux resource list` to get them and provide with `--hostnames`.
-Here is what the generated tree looks like under configs:
-
-```bash
-tree ./configs
-```
-```console
-$ tree example/configs/
-example/configs/
-├── curve.cert
-├── R
-├── run
-│   └── content.sqlite
-├── start.sh
-└── system
-    └── system.toml
-
-2 directories, 5 files
-```
-The sockets (e.g., "local") will be generated under run. And here is what it looks like without the
-secondary brokers starting yet:
+You should see in the other terminal (running the lead broker) the burst accepted and the nodes come online!
 
 ```console
-$ bash configs/start.sh
-broker.debug[0]: insmod connector-local
-broker.info[0]: start: none->join 0.6186ms
-broker.info[0]: parent-none: join->init 0.034561ms
-connector-local.debug[0]: allow-guest-user=false
-connector-local.debug[0]: allow-root-owner=false
-broker.debug[0]: insmod barrier
-broker.debug[0]: insmod content-sqlite
-content-sqlite.debug[0]: /workspaces/flux-burst-local/example/configs/run/content.sqlite (0 objects) journal_mode=WAL synchronous=NORMAL
-broker.debug[0]: content backing store: enabled content-sqlite
-broker.debug[0]: insmod kvs
-broker.debug[0]: insmod kvs-watch
-broker.debug[0]: insmod resource
-resource.debug[0]: reslog_cb: resource-init event posted
-resource.debug[0]: reslog_cb: resource-define event posted
-broker.debug[0]: insmod cron
-cron.info[0]: synchronizing cron tasks to event heartbeat.pulse
-broker.debug[0]: insmod job-manager
-job-manager.debug[0]: jobtap plugin .history registered method job-manager.history.get
-job-manager.info[0]: restart: 0 jobs
-job-manager.info[0]: restart: 0 running jobs
-job-manager.info[0]: restart: checkpoint.job-manager not found
-job-manager.debug[0]: restart: max_jobid=ƒ1
-job-manager.debug[0]: duration-validator: updated expiration to 0.00
-broker.debug[0]: insmod job-info
-broker.debug[0]: insmod job-list
-job-list.debug[0]: job_state_init_from_kvs: read 0 jobs
-broker.debug[0]: insmod job-ingest
-job-ingest.debug[0]: configuring validator with plugins=(null), args=(null) (enabled)
-job-ingest.debug[0]: fluid ts=1ms
-broker.debug[0]: insmod job-exec
-job-exec.debug[0]: using default shell path /usr/libexec/flux/flux-shell
-broker.debug[0]: insmod heartbeat
-broker.info[0]: rc1.0: running /etc/flux/rc1.d/01-sched-fluxion
-broker.debug[0]: insmod sched-fluxion-resource
-sched-fluxion-resource.info[0]: version 0.27.0-38-ge0b49993
-sched-fluxion-resource.debug[0]: mod_main: resource module starting
-sched-fluxion-resource.warning[0]: create_reader: allowlist unsupported
-sched-fluxion-resource.debug[0]: resource graph datastore loaded with rv1exec reader
-sched-fluxion-resource.info[0]: populate_resource_db: loaded resources from core's resource.acquire
-sched-fluxion-resource.debug[0]: resource status changed (rankset=[all] status=DOWN)
-sched-fluxion-resource.debug[0]: mod_main: resource graph database loaded
-broker.debug[0]: insmod sched-fluxion-qmanager
-sched-fluxion-qmanager.info[0]: version 0.27.0-38-ge0b49993
-sched-fluxion-qmanager.debug[0]: service_register
-sched-fluxion-qmanager.debug[0]: enforced policy (queue=default): fcfs
-sched-fluxion-qmanager.debug[0]: effective queue params (queue=default): default
-sched-fluxion-qmanager.debug[0]: effective policy params (queue=default): default
-sched-fluxion-qmanager.debug[0]: handshaking with sched-fluxion-resource completed
-job-manager.debug[0]: scheduler: hello
-job-manager.debug[0]: scheduler: ready unlimited
-sched-fluxion-qmanager.debug[0]: handshaking with job-manager completed
-broker.info[0]: rc1.0: running /etc/flux/rc1.d/02-cron
-broker.info[0]: rc1.0: /etc/flux/rc1 Exited (rc=0) 0.4s
-broker.info[0]: rc1-success: init->quorum 0.3982s
-broker.debug[0]: groups: broker.online=0
-broker.info[0]: online: c35948d1ed31 (ranks 0)
-broker.info[0]: quorum-full: quorum->run 0.100979s
+Running burst...
+Running burst...
+🧋️  Job 8799129698304 is marked for bursting.
+sched-fluxion-resource.debug[0]: status_request_cb: status succeeded
+sched-fluxion-qmanager.debug[0]: status_request_cb: resource-status succeeded
+fTGoaEbxj
+broker.debug[0]: overlay auth cert-name=quartz5 OK
+broker.debug[0]: accepting connection from quartz7 (rank 2) status full
+broker.debug[0]: overlay auth cert-name=quartz5 OK
+broker.debug[0]: accepting connection from quartz8 (rank 3) status full
+broker.debug[0]: overlay auth cert-name=quartz5 OK
+broker.debug[0]: accepting connection from quartz6 (rank 1) status full
+broker.debug[0]: groups: broker.online=0-3
+broker.info[0]: online: quartz[5-8] (ranks 0-3)
 resource.debug[0]: reslog_cb: online event posted
-sched-fluxion-resource.debug[0]: resource status changed (rankset=[0] status=UP)
-TODO START OTHER WOKRERS
+sched-fluxion-resource.debug[0]: resource status changed (rankset=[1-3] status=UP)
+sched-fluxion-qmanager.debug[0]: alloc success (queue=default id=8799129698304)
+sched-fluxion-qmanager.debug[0]: free succeeded (queue=default id=8799129698304)
+job-ingest.debug[0]: job-validator[0]: inactivity timeout
 ...
 ```
 
-### On Quartz
-
-I was able to install flux bindings to my local python environment (associated with python 3.6 on the system):
+In your terminal where you ran the job, you'll see hostnames!
 
 ```bash
-pip3 install flux-python==0.48.0rc6 --user
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
+$ flux run -N 4 -o cpu-affinity=off --cwd /tmp --setattr=burstable hostname
+quartz5
+quartz7
+quartz6
+quartz8
 ```
-Note there was a bug with dataclasses and I uninstalled it:
+
+And if you look at resources, they will all have come online. The reason is because we have the burst plugin
+submit a flux proxy command that does flux start on the same config directory on the number of worker nodes needed,
+bringing them online.
 
 ```bash
-pip3 uninstall dataclasses -y
-```
-
-And then the import of Flux worked. Then I make a working directory:
-
-```bash
-mkdir test-flux-burst
-cd test-flux-burst
-```
-
-And installed flux-burst and flux-burst local.
-
-```bash
-# I needed to do this for package data
-pip install flux-burst
-git clone -b add/pre-section https://github.com/converged-computing/flux-burst
-cd flux-burst
-pip3 install . --user
-python3 setup.py install --user
-cd ../
-git clone https://github.com/converged-computing/flux-burst-local
-cd flux-burst-local
-pip3 install . --user
-python3 setup.py install --user
-cd ../
-```
-
-And added the location where `flux-burst-local` ("binary") is installed to the path:
-
-```bash
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=/g/g0/sochat1/.local/bin:$PATH
-```
-
-Next let's try starting the main broker, and generating a command for the workers.
-Since I'm developing this, I'll need to run this command multiple times as I test
-interacting with workers.
-
-```bash
-$ cd flux-burst-local/example
-$ python3 burst-slurm-allocation.py --config-dir ./configs --network-device "*"
-```
-```
-🌳️ Flux root set to /usr
-🌀️ Done! Use the following command to start your Flux instance and burst!
-    It is also written to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/start.sh
-
-/usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -Slog-stderr-level=7 -Slog-stderr-mode=local /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs --flux-root /usr
-```
-
-Since I didn't know what I was doing, I did the following. First, create a Flux instance to work from:
-
-```bash
-srun -N 4 --time 60:00 -ppdebug --pty flux start
-```
-Then generate the configs for the hosts we got. Note that since this is no longer slurm, we won't get them from the environment variable.
-I was lazy and grabbed them from resources:
-
-```bash
-$ flux resource list
+[sochat1@quartz5:example]$ flux resource list
      STATE NNODES   NCORES NODELIST
-      free      4      144 quartz[8-11]
+      free      4      144 quartz[5-8]
  allocated      0        0
       down      0        0
 ```
 
-Note that when you ssh in later, you probably won't be connected to this instance. I found the socket in tmp and did:
+And finally, the job will have run.
+
+```
+[sochat1@quartz5:example]$ flux jobs -a
+       JOBID USER     NAME       ST NTASKS NNODES     TIME INFO
+   f4z91xhEP sochat1  hostname   CD      4      4   0.089s quartz[5-8]
+```
+
+Here is a screenshot of the first ever burst I got working!
+
+![img/bursting.png](img/bursting.png)
+
+Note that we currently don't add a `--requires` parameter to limit the proxy to not hit the lead broker and we should
+do that. I had trouble with it because of the space in the parameter. For reference, that command
+looks like this.
 
 ```bash
-flux proxy local:///tmp/sochat1/flux-rL3UfM/local-0
+flux proxy $FLUX_URI flux submit -N 3 --requires "not rank:0" /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system
 ```
 
-And then I was connected again.
-
-```bash
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=/g/g0/sochat1/.local/bin:$PATH
-cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
-python3 burst-slurm-allocation.py --config-dir ./configs --network-device "*" --hostnames quartz[8-11]
-```
-```console
-🌳️ Flux root set to /usr
-🦩️ Writing flux config to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system/system.toml
-🌀️ Done! Use the following command to start your Flux instance and burst!
-    It is also written to /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/start.sh
-
-/usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -Slog-stderr-level=7 -Slog-stderr-mode=local /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system --flux-root /usr
-```
-
-Grab the FLUX_URI for this parent instance:
-
-```
-$ echo $FLUX_URI
-local:///var/tmp/sochat1/flux-proxy-L0im8J/local
-```
-
-I then started the main broker (using the command above).  Then I shelled into the cluster again, and to the same node and connected to the socket to verify three hosts were down.
-
-```bash
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=/g/g0/sochat1/.local/bin:$PATH
-cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
-flux proxy local://./configs/run/local
-```
-
-You should see all the instances, that the main broker is online and the other nodes offline:
-
-```bash
-$ flux resource list
-     STATE NNODES   NCORES NODELIST
-      free      1       36 quartz8
- allocated      0        0
-      down      3      108 quartz[9-11]
-```
-
-Now we want to test running a flux job and targeting the three down workers. Exit from the proxy so you again see that all four workers are free, and run the job to target them:
-
-```bash
-flux submit -N 3 --requires "not rank:0" /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system
-```
-
-If you are watching the main broker still running, you should see the nodes join. But the problem now is that this command was run from the top level instance,
-and not from inside of the burst. There might be a more clever way to run all of this, but the problem (as I see it) is that we are one level too low to control the bursting.
-Hmm, can we do a flux proxy to the parent socket?
-
-```bash
-flux proxy flux submit -N 3 --requires "not rank:0" /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system
-```
+And that's it! See [development](development.md) for a whole ton of things I tested before this.
