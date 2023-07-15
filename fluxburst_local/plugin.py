@@ -42,16 +42,17 @@ class BurstParameters:
     # Custom flux user (defaults to running user)
     flux_user: Optional[str] = None
 
-    def ensure_path(self):
-        """
-        Ensure flux bin is on the path
-        """
-        # Ensure flux root on path
-        path = os.environ.get("PATH")
-        if f":{self.flux_root}/bin:" not in path:
-            path = f"{self.flux_root}/bin:{path}"
-        os.environ.putenv("PATH", path)
-        os.environ["PATH"] = path
+    @property
+    def system_dir(self):
+        return os.path.join(self.config_dir, "system")
+
+    @property
+    def run_dir(self):
+        return os.path.join(self.config_dir, "run")
+
+    @property
+    def lib_dir(self):
+        return os.path.join(self.config_dir, "lib")
 
     @property
     def fluxcmd(self):
@@ -105,9 +106,6 @@ class BurstParameters:
         We also create paths for run, lib, and system.
         """
         self.config_dir = os.path.abspath(self.config_dir or utils.get_tmpdir())
-        self.system_dir = os.path.join(self.config_dir, "system")
-        self.run_dir = os.path.join(self.config_dir, "run")
-        self.lib_dir = os.path.join(self.config_dir, "run")
         for path in [self.lib_dir, self.run_dir, self.system_dir]:
             utils.mkdir_p(path)
 
@@ -218,37 +216,37 @@ class FluxBurstLocal(BurstPlugin):
 
         nodes_down = [node for node in listing.down.nodelist]
         nodes_free = [node for node in listing.free.nodelist]
-        if nodes_free + nodes_down < node_count:
+        if len(nodes_free) + len(nodes_down) < node_count:
             logger.warning("Not enough nodes to satisfy job, even with bursting")
             return
 
         # Calculate nodes needed and burst. Ensure if we don't need any, we exit
-        nodes_needed = node_count - nodes_free
+        nodes_needed = node_count - len(nodes_free)
         if nodes_needed <= 0:
             return
 
         logger.debug(f"{nodes_needed} are needed.")
 
         # Note that this assumes flux in the same install location, and the rank 0 of the second instance == rank 0 of the first
-        # Aside from that, we let flux choose the nodes
+        # Aside from that, we let flux choose the nodes. We need to exclude the lead (the requires didn't parse well with spaces)
         command = [
             self.params.fluxcmd,
             "proxy",
             self.params.flux_uri,
             self.params.fluxcmd,
+            "submit",
             "-N",
-            nodes_needed,
-            "--requires" '"not rank:0"',
+            str(nodes_needed),
+            # TODO need a way to specify this
+            # '--requires=\"not rank:0\"',
             self.params.fluxcmd,
             "start",
             "--broker-opts",
             "--config",
             self.params.system_dir,
         ]
-        print(command)
-        res = utils.run_command(command)
-        if res["return_code"] != 0:
-            logger.error(f"Issue connecting to flux proxy: {res['message']}.")
+        print(" ".join(command))
+        os.system(" ".join(command))
 
     def validate_params(self):
         """
@@ -332,7 +330,7 @@ class FluxBurstSlurm(FluxBurstLocal):
             "-Spty.interactive",
             flux_burst_local,
             "--config-dir",
-            dataclass.system_dir,
+            dataclass.config_dir,
             "--flux-root",
             dataclass.flux_root,
             "--flux-uri",

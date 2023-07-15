@@ -90,8 +90,82 @@ $ python3 burst-allocation.py --config-dir ./configs --network-device "*" --host
 /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system -Stbon.fanout=256 -Srundir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Sstatedir=/usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run -Slocal-uri=local:///usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/local -S pty.interactive -Slog-stderr-level=7 -Slog-stderr-mode=local -Sbroker.quorum=0 /g/g0/sochat1/.local/bin/flux-burst-local --config-dir /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system --flux-root /usr --flux-uri local:///var/tmp/sochat1/flux-TvAVr6/local-0
 ```
 
-That command has actually started the instance with one broker up, and loaded the burst plugin, and it's running a sleep loop (every 30 seconds) waiting for a burstable job.
-So let's shell into that same instance and give it one! This is in another terminal.
+That will generate the entire "configs" directory that you can check before running the command. When you are ready - copy paste the above and run it!
+
+<details>
+
+<summary>Expected output of command</summary>
+
+```console
+broker.debug[0]: insmod connector-local
+broker.info[0]: start: none->join 14.5897ms
+broker.info[0]: parent-none: join->init 0.025185ms
+connector-local.debug[0]: allow-guest-user=true
+connector-local.debug[0]: allow-root-owner=true
+broker.debug[0]: insmod barrier
+broker.debug[0]: insmod content-sqlite
+content-sqlite.debug[0]: /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/run/content.sqlite (22 objects) journal_mode=WAL synchronous=NORMAL
+broker.debug[0]: content backing store: enabled content-sqlite
+broker.debug[0]: insmod kvs
+kvs.info[0]: restored KVS from checkpoint on 2023-07-15T02:17:45Z
+broker.debug[0]: insmod kvs-watch
+broker.debug[0]: insmod resource
+resource.debug[0]: reslog_cb: resource-init event posted
+resource.debug[0]: reslog_cb: resource-define event posted
+broker.debug[0]: insmod cron
+cron.info[0]: synchronizing cron tasks to event heartbeat.pulse
+broker.debug[0]: insmod job-manager
+job-manager.debug[0]: jobtap plugin .history registered method job-manager.history.get
+job-manager.info[0]: restart: 0 jobs
+job-manager.info[0]: restart: 0 running jobs
+job-manager.debug[0]: restart: max_jobid=0
+job-manager.debug[0]: duration-validator: updated expiration to 0.00
+broker.debug[0]: insmod job-info
+broker.debug[0]: insmod job-list
+job-list.debug[0]: job_state_init_from_kvs: read 0 jobs
+broker.debug[0]: insmod job-ingest
+job-ingest.debug[0]: configuring validator with plugins=(null), args=(null) (enabled)
+job-ingest.debug[0]: fluid ts=1ms
+broker.debug[0]: insmod job-exec
+job-exec.debug[0]: using default shell path /usr/libexec/flux/flux-shell
+job-exec.debug[0]: using imp path /usr/libexec/flux/flux-imp
+broker.debug[0]: insmod heartbeat
+broker.info[0]: rc1.0: running /etc/flux/rc1.d/01-flux-account-priority-update
+broker.info[0]: rc1.0: running /etc/flux/rc1.d/01-sched-fluxion
+broker.debug[0]: insmod sched-fluxion-resource
+sched-fluxion-resource.info[0]: version 0.26.0
+sched-fluxion-resource.debug[0]: mod_main: resource module starting
+sched-fluxion-resource.warning[0]: create_reader: allowlist unsupported
+sched-fluxion-resource.debug[0]: resource graph datastore loaded with rv1exec reader
+sched-fluxion-resource.info[0]: populate_resource_db: loaded resources from core's resource.acquire
+sched-fluxion-resource.debug[0]: resource status changed (rankset=[all] status=DOWN)
+sched-fluxion-resource.debug[0]: mod_main: resource graph database loaded
+broker.debug[0]: insmod sched-fluxion-qmanager
+sched-fluxion-qmanager.info[0]: version 0.26.0
+sched-fluxion-qmanager.debug[0]: service_register
+sched-fluxion-qmanager.debug[0]: enforced policy (queue=default): fcfs
+sched-fluxion-qmanager.debug[0]: effective queue params (queue=default): default
+sched-fluxion-qmanager.debug[0]: effective policy params (queue=default): default
+sched-fluxion-qmanager.debug[0]: handshaking with sched-fluxion-resource completed
+job-manager.debug[0]: scheduler: hello
+job-manager.debug[0]: scheduler: ready unlimited
+sched-fluxion-qmanager.debug[0]: handshaking with job-manager completed
+broker.info[0]: rc1.0: running /etc/flux/rc1.d/02-cron
+broker.info[0]: rc1.0: /etc/flux/rc1 Exited (rc=0) 2.1s
+broker.info[0]: rc1-success: init->quorum 2.09608s
+broker.debug[0]: groups: broker.online=0
+broker.info[0]: online: quartz5 (ranks 0)
+broker.info[0]: quorum-full: quorum->run 0.101144s
+resource.debug[0]: reslog_cb: online event posted
+sched-fluxion-resource.debug[0]: resource status changed (rankset=[0] status=UP)
+flux-burst client is loaded with plugins for: local
+Running burst...
+```
+
+</details>
+
+The above is going to sleep every 30 seconds and try to run a burst. Bursting happens based on jobs needing it, so let's do that next!
+In another terminal, connect to your same lead broker node and then the local socket (e.g quartz5)
 
 ```bash
 export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
@@ -105,15 +179,15 @@ You should see all the instances, that the main broker is online and the other n
 ```bash
 $ flux resource list
      STATE NNODES   NCORES NODELIST
-      free      1       36 quartz8
+      free      1       36 quartz5
  allocated      0        0
-      down      3      108 quartz[9-11]
+      down      3      108 quartz[6-8]
 ```
 
-Now we want to test running a flux job and targeting the three down workers. Exit from the proxy so you again see that all four workers are free, and run the job to target them:
+Now we want to test running a flux job and targeting the three down workers. Submit a burstable job that needs two nodes.
 
 ```bash
-flux submit -N 3 --requires "not rank:0" /usr/bin/flux start --broker-opts --config /usr/WS2/sochat1/test-flux-burst/flux-burst-local/example/configs/system
+flux run -N 4 -o cpu-affinity=off --cwd /tmp --setattr=burstable hostname
 ```
 
 If you are watching the main broker still running, you should see the nodes join. But the problem now is that this command was run from the top level instance,
