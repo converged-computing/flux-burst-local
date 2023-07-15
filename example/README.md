@@ -2,10 +2,6 @@
 
 This will include examples for local bursting.
 
-- [Allocation burst](#allocation-burst) walks through early details.
-- [Development](#development) is how I developed
-- [Testing](#testing) is likely what you want if you want to test this yourself!
-
 ## Allocation burst
 
 For this first use case, we assume that we have some allocation we are sitting on
