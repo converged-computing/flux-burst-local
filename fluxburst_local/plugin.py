@@ -233,6 +233,7 @@ class FluxBurstLocal(BurstPlugin):
             self.params.fluxcmd,
             "proxy",
             self.params.flux_uri,
+            "--force",
             self.params.fluxcmd,
             "submit",
             "-N",
