@@ -232,8 +232,8 @@ class FluxBurstLocal(BurstPlugin):
         command = [
             self.params.fluxcmd,
             "proxy",
-            self.params.flux_uri,
             "--force",
+            self.params.flux_uri,
             self.params.fluxcmd,
             "submit",
             "-N",
