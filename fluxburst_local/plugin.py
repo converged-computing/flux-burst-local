@@ -347,6 +347,10 @@ class FluxBurstHPC(FluxBurstLocal):
                 "The flux_uri must be defined to provide to the child instance."
             )
 
+        # If we aren't regenerating, don't show this
+        if not dataclass.regenerate:
+            return
+
         # Generate the rundirectory
         # Start the main broker via replacing current process
         flux_burst_local = shutil.which("flux-burst-local")
