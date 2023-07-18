@@ -69,6 +69,10 @@ def main():
         # This will hit the plugin->run to flux proxy to start brokers
         client.run_burst()
 
+        # This is a bit buggy - we have to wait for the brokers to start
+        print("Giving time for brokers to start...")
+        time.sleep(10)
+
         # Bursted job ids associated with brokers are here
         if plugin.jobids:
             # Ask client to wait for all jobs to be finished (in state cancel or fail)

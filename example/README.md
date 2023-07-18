@@ -158,8 +158,6 @@ In another terminal, connect to your same lead broker node and then the local so
 ```bash
 # Connect to your allocation node
 ssh quartz<N>
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=$PATH/.local/bin:$PATH
 cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
 flux proxy local://./configs/run/local
 ```
