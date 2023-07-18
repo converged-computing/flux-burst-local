@@ -17,10 +17,9 @@ def init(dataclass, **kwargs):
     this means starting another flux instance with the resources.
     If SLURM we assume we are inside a SLURM allocation.
     """
-    from .plugin import FluxBurstLocal, FluxBurstSlurm, SlurmBurstParameters
+    from .plugin import BurstParameters, FluxBurstHPC
 
-    if isinstance(dataclass, SlurmBurstParameters):
-        # Set variables from slurm
-        FluxBurstSlurm.setup(dataclass)
-        return FluxBurstSlurm(dataclass, **kwargs)
-    return FluxBurstLocal(dataclass, **kwargs)
+    if not isinstance(dataclass, BurstParameters):
+        raise ValueError("Current support is only for BurstParameters")
+    FluxBurstHPC.setup(dataclass)
+    return FluxBurstHPC(dataclass, **kwargs)

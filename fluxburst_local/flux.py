@@ -58,11 +58,25 @@ def main():
     # Here is how we can see the jobs that are contenders to burst!
     # client.select_jobs()
 
+    # This isn't supported (or needed) for top level flux-burst yet, so
+    # we interact directly with the plugin
+    plugin = client.plugins["local"]
+
     # Continue running the burst until no more burstable
-    # This likely needs to be adjusted
     while True:
         print("Running burst...")
+
+        # This will hit the plugin->run to flux proxy to start brokers
         client.run_burst()
+
+        # Bursted job ids associated with brokers are here
+        if plugin.jobids:
+            # Ask client to wait for jobs to be finished (in state cancel or fail)
+            client.wait_for_jobs(plugin.jobids)
+
+            # When they are done, we cleanup the jobs (and clear jobids
+            client.run_unburst()
+
         time.sleep(5)
 
 

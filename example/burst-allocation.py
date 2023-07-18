@@ -9,7 +9,7 @@ import os
 from fluxburst.client import FluxBurst
 
 # How we provide custom parameters to a flux-burst plugin
-from fluxburst_local.plugin import SlurmBurstParameters
+from fluxburst_local.plugin import BurstParameters
 
 # Save data here
 here = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +46,7 @@ def main():
 
     # Create the dataclass for the plugin config
     # We use a dataclass because it does implicit validation of required params, etc.
-    params = SlurmBurstParameters(
+    params = BurstParameters(
         flux_root=args.flux_root,
         config_dir=args.config_dir,
         curve_cert=args.curve_cert,
