@@ -9,7 +9,7 @@ import os
 from fluxburst.client import FluxBurst
 
 # How we provide custom parameters to a flux-burst plugin
-from fluxburst_local.plugin import SlurmBurstParameters
+from fluxburst_local.plugin import BurstParameters
 
 # Save data here
 here = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +23,7 @@ def get_parser():
     parser.add_argument(
         "--network-device", help="Network device to use for brokers", default="eth0"
     )
+    parser.add_argument("--hostnames", help="Hostnames")
     parser.add_argument("--config-dir", help="Configuration directory for flux")
     parser.add_argument(
         "--curve-cert", help="Curve certificate for flux (flux keygen curve.cert)"
@@ -45,7 +46,7 @@ def main():
 
     # Create the dataclass for the plugin config
     # We use a dataclass because it does implicit validation of required params, etc.
-    params = SlurmBurstParameters(
+    params = BurstParameters(
         flux_root=args.flux_root,
         config_dir=args.config_dir,
         curve_cert=args.curve_cert,

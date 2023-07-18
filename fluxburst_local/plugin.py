@@ -37,7 +37,7 @@ class BurstParameters:
 
     # Flux log level
     log_level: Optional[int] = 7
-    regenerate: bool = False
+    regenerate: bool = True
 
     # Custom flux user (defaults to running user)
     flux_user: Optional[str] = None
@@ -57,6 +57,20 @@ class BurstParameters:
     @property
     def fluxcmd(self):
         return f"{self.flux_root}/bin/flux"
+
+    def set_hostnames(self):
+        """
+        Ensure we have hostnames from a variable or environment.
+        """
+        self.hostnames = (
+            self.hostnames
+            or os.environ.get("SLURM_JOB_HOSTLIST")
+            or os.environ.get("SLURM_NODELIST")
+        )
+        if not self.hostnames:
+            raise ValueError(
+                "The 'hostnames' parameter or environment variable SLURM_JOB_HOSTLIST must be defined."
+            )
 
     def generate_flux_config(self):
         """
@@ -106,6 +120,10 @@ class BurstParameters:
         We also create paths for run, lib, and system.
         """
         self.config_dir = os.path.abspath(self.config_dir or utils.get_tmpdir())
+        if self.regenerate and os.path.exists(self.config_dir):
+            logger.info("Cleaning up previous config directory...")
+            shutil.rmtree(self.config_dir)
+
         for path in [self.lib_dir, self.run_dir, self.system_dir]:
             utils.mkdir_p(path)
 
@@ -153,32 +171,12 @@ class BurstParameters:
         utils.write_file(res["message"], rpath)
 
 
-@dataclass
-class SlurmBurstParameters(BurstParameters):
-    """
-    Custom parameters for SLURM.
-
-    We can get the hostnames from the environment. This dataclass
-    is used to trigger getting the needed parameters from the environment.
-    """
-
-    def set_hostnames(self):
-        """
-        Ensure we have hostnames from a variable or environment.
-        """
-        self.hostnames = (
-            self.hostnames
-            or os.environ.get("SLURM_JOB_HOSTLIST")
-            or os.environ.get("SLURM_NODELIST")
-        )
-        if not self.hostnames:
-            raise ValueError(
-                "The 'hostnames' parameter or environment variable SLURM_JOB_HOSTLIST must be defined."
-            )
-
-
 class FluxBurstLocal(BurstPlugin):
     _param_dataclass = BurstParameters
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.jobids = []
 
     def run(self, request_burst=False, nodes=None, **kwargs):
         """
@@ -232,6 +230,7 @@ class FluxBurstLocal(BurstPlugin):
         command = [
             self.params.fluxcmd,
             "proxy",
+            "--force",
             self.params.flux_uri,
             self.params.fluxcmd,
             "submit",
@@ -245,9 +244,49 @@ class FluxBurstLocal(BurstPlugin):
             "--config",
             self.params.system_dir,
         ]
-        # This likely can be improved
         print(" ".join(command))
-        os.system(" ".join(command))
+        res = utils.run_command(command)
+
+        # Tell the user about any issues
+        if res["return_code"] != 0:
+            command = " ".join(command)
+            logger.warning(f'Issue running {command}: res["message"]')
+            return
+
+        # 'f3YXvFkgX\n'
+        jobid = res["message"].strip()
+        logger.debug(f"Adding jobid {jobid} to bursted proxy jobs.")
+        self.jobids.append(jobid)
+
+    def unburst(self):
+        """
+        Given a set of jobids that started brokers, cancel them.
+
+        This gets called by flux burst when the original job is determined
+        to be done.
+        """
+        if not self.jobids:
+            logger.debug("There are no jobs to unburst.")
+            return
+
+        command = [
+            self.params.fluxcmd,
+            "proxy",
+            "--force",
+            self.params.flux_uri,
+            self.params.fluxcmd,
+            "job",
+            "cancel",
+        ] + self.jobids
+        print(" ".join(command))
+        res = utils.run_command(command)
+
+        # Tell the user about any issues
+        if res["return_code"] != 0:
+            command = " ".join(command)
+            logger.warning(f'Issue running {command}: res["message"]')
+            return
+        self.jobids = []
 
     def validate_params(self):
         """
@@ -289,7 +328,7 @@ class FluxBurstLocal(BurstPlugin):
         return True
 
 
-class FluxBurstSlurm(FluxBurstLocal):
+class FluxBurstHPC(FluxBurstLocal):
     # Set our custom dataclass, otherwise empty
     _param_dataclass = BurstParameters
 
@@ -301,6 +340,12 @@ class FluxBurstSlurm(FluxBurstLocal):
         dataclass.validate()
         dataclass.set_hostnames()
         dataclass.set_config_dir()
+
+        # If we aren't regenerating, don't show this
+        if not dataclass.regenerate:
+            return
+
+        # Write configs
         dataclass.write_curve_cert()
         dataclass.write_resource_spec()
         dataclass.generate_flux_config()
