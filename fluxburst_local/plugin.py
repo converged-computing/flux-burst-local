@@ -37,7 +37,7 @@ class BurstParameters:
 
     # Flux log level
     log_level: Optional[int] = 7
-    regenerate: bool = False
+    regenerate: bool = True
 
     # Custom flux user (defaults to running user)
     flux_user: Optional[str] = None
