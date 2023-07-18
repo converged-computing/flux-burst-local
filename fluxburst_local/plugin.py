@@ -277,8 +277,7 @@ class FluxBurstLocal(BurstPlugin):
             self.params.fluxcmd,
             "job",
             "cancel",
-            self.jobids,
-        ]
+        ] + self.jobids
         print(" ".join(command))
         res = utils.run_command(command)
 

@@ -70,7 +70,6 @@ def main():
         client.run_burst()
 
         # This is a bit buggy - we have to wait for the brokers to start
-        print("Giving time for brokers to start...")
         time.sleep(10)
 
         # Bursted job ids associated with brokers are here
