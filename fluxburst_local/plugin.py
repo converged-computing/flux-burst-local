@@ -15,8 +15,6 @@ from fluxburst.plugins import BurstPlugin
 
 import fluxburst_local.templates as templates
 
-# TODO need to try cleanup
-
 
 @dataclass
 class BurstParameters:
@@ -242,17 +240,50 @@ class FluxBurstLocal(BurstPlugin):
             "--config",
             self.params.system_dir,
         ]
-        # This likely can be improved
         print(" ".join(command))
-        print("TODO need to get the result of this!")
         res = utils.run_command(command)
-        print(res)
+
+        # Tell the user about any issues
+        if res["return_code"] != 0:
+            command = " ".join(command)
+            logger.warning(f'Issue running {command}: res["message"]')
+            return
+
+        # 'f3YXvFkgX\n'
+        jobid = res["message"].strip()
+        logger.debug(f"Adding jobid {jobid} to bursted proxy jobs.")
+        self.jobids.append(jobid)
 
     def unburst(self):
         """
         Given a set of jobids that started brokers, cancel them.
+
+        This gets called by flux burst when the original job is determined
+        to be done.
         """
-        print("UNBURST")
+        if not self.jobids:
+            logger.debug("There are no jobs to unburst.")
+            return
+
+        command = [
+            self.params.fluxcmd,
+            "proxy",
+            "--force",
+            self.params.flux_uri,
+            self.params.fluxcmd,
+            "job",
+            "cancel",
+            self.jobids,
+        ]
+        print(" ".join(command))
+        res = utils.run_command(command)
+
+        # Tell the user about any issues
+        if res["return_code"] != 0:
+            command = " ".join(command)
+            logger.warning(f'Issue running {command}: res["message"]')
+            return
+        self.jobids = []
 
     def validate_params(self):
         """
@@ -322,10 +353,6 @@ class FluxBurstHPC(FluxBurstLocal):
         if not flux_burst_local:
             raise ValueError("Cannot find flux-burst-local executable on path.")
         args = [
-            "submit" "-N",
-            "1",
-            "--watch",
-            dataclass.fluxcmd,
             "start",
             "--broker-opts",
             "--config",

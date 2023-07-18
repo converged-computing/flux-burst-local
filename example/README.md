@@ -23,18 +23,8 @@ I wound up:
 
 I was able to install flux bindings to my local python environment (associated with python 3.6 on the system):
 
-```bash
-pip3 install flux-python==0.48.0rc6 --user
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-```
-
-Note there was a bug with dataclasses and I uninstalled it:
-
-```bash
-pip3 uninstall dataclasses -y
-```
-
-And then the import of Flux worked. Then I make a working directory:
+**IMPORTANT** Ensure that for all commands you run, you use the same Flux. The scripts will find the first on your path. If the versions are different we use `--force` for the flux proxy that starts the down brokers, however to avoid unpredictable errors it's better to be consistent and use the same install of flux.
+Make a working directory:
 
 ```bash
 mkdir test-flux-burst
@@ -44,8 +34,9 @@ cd test-flux-burst
 And installed flux-burst and flux-burst local (you can also clone repositories)
 
 ```bash
-pip install flux-burst
-pip install flux-burst-local
+pip3 install flux-burst
+pip3 install flux-burst-local
+pip3 install flux-python==0.48.0rc6 --user
 ```
 
 You might need to add `--user` if you get a permissions error. Mine installed to my user site by default.
@@ -57,8 +48,7 @@ First, create a Flux instance to work from. This is how you do that from SLURM. 
 ```bash
 srun -N 4 --time 60:00 -ppdebug --pty flux start
 ```
-
-When you get the allocation, you can verify your resources as follows:
+**Don't forget to check the path of flux you are using**. When you get the allocation, you can verify your resources as follows:
 
 ```bash
 $ flux resource list
@@ -72,8 +62,8 @@ Then generate the configs for the hosts we got. Note that since this is no longe
 I was lazy and grabbed them from `flux resource list` (there likely is a better way!)
 
 ```bash
-export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=/g/g0/sochat1/.local/bin:$PATH
+export PYTHONPATH=$HOME/.local/lib/python3.8/site-packages:$PYTHONPATH
+export PATH=$HOME/.local/bin:$PATH
 cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
 python3 burst-allocation.py --config-dir ./configs --network-device "*" --hostnames quartz[5-8] --flux-uri $FLUX_URI
 ```
@@ -166,8 +156,10 @@ will just happen once / until all node are up). Let's do that next!
 In another terminal, connect to your same lead broker node and then the local socket (e.g quartz5)
 
 ```bash
+# Connect to your allocation node
+ssh quartz<N>
 export PYTHONPATH=$HOME/.local/lib/python3.6/site-packages
-export PATH=/g/g0/sochat1/.local/bin:$PATH
+export PATH=$PATH/.local/bin:$PATH
 cd /usr/workspace/sochat1/test-flux-burst/flux-burst-local/example
 flux proxy local://./configs/run/local
 ```

@@ -71,8 +71,8 @@ def main():
 
         # Bursted job ids associated with brokers are here
         if plugin.jobids:
-            # Ask client to wait for jobs to be finished (in state cancel or fail)
-            client.wait_for_jobs(plugin.jobids)
+            # Ask client to wait for all jobs to be finished (in state cancel or fail)
+            client.wait_for_jobs()
 
             # When they are done, we cleanup the jobs (and clear jobids
             client.run_unburst()
