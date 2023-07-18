@@ -337,6 +337,12 @@ class FluxBurstHPC(FluxBurstLocal):
         dataclass.validate()
         dataclass.set_hostnames()
         dataclass.set_config_dir()
+
+        # If we aren't regenerating, don't show this
+        if not dataclass.regenerate:
+            return
+
+        # Write configs
         dataclass.write_curve_cert()
         dataclass.write_resource_spec()
         dataclass.generate_flux_config()
@@ -346,10 +352,6 @@ class FluxBurstHPC(FluxBurstLocal):
             raise ValueError(
                 "The flux_uri must be defined to provide to the child instance."
             )
-
-        # If we aren't regenerating, don't show this
-        if not dataclass.regenerate:
-            return
 
         # Generate the rundirectory
         # Start the main broker via replacing current process
