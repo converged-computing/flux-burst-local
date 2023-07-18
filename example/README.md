@@ -237,6 +237,10 @@ Here is a screenshot of the first ever burst I got working!
 
 ![img/bursting.png](img/bursting.png)
 
+And here is what it looks like when the bursted jobs are cleaned up:
+
+![img/cleanup.png](img/cleanup.png)
+
 Note that we currently don't add a `--requires` parameter to limit the proxy to not hit the lead broker and we should
 do that. I had trouble with it because of the space in the parameter. For reference, that command
 looks like this.
