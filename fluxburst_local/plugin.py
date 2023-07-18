@@ -120,7 +120,7 @@ class BurstParameters:
         We also create paths for run, lib, and system.
         """
         self.config_dir = os.path.abspath(self.config_dir or utils.get_tmpdir())
-        if dataclass.regenerate and os.path.exists(self.config_dir):
+        if self.regenerate and os.path.exists(self.config_dir):
             logger.info("Cleaning up previous config directory...")
             shutil.rmtree(self.config_dir)
 
